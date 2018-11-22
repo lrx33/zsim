@@ -48,11 +48,13 @@
 // Integer log2 --- called ilog2 because cmath defines log2 for floats/doubles,
 // and promotes int calls to use FP
 template<typename T> static inline uint32_t ilog2(T val);
+
 // Only specializations of unsigned types (no calling these with ints)
 // __builtin_clz is undefined for 0 (internally, this uses bsr in x86-64)
 template<> uint32_t ilog2<uint32_t>(uint32_t val) {
     return val? 31 - __builtin_clz(val) : 0;
 }
+
 template<> uint32_t ilog2<uint64_t>(uint64_t val) {
     return val? 63 - __builtin_clzl(val) : 0;
 }

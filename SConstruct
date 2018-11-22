@@ -46,8 +46,8 @@ def buildSim(cppFlags, dir, type, pgo=None):
     # NOTE (dsm 10 Jan 2013): Tested with Pin 2.10 thru 2.12 as well
     # NOTE: Original Pin flags included -fno-strict-aliasing, but zsim does not do type punning
     # NOTE (dsm 16 Apr 2015): Update flags code to support Pin 2.14 while retaining backwards compatibility
-    env["CPPFLAGS"] += " -g -std=c++0x -Wall -Wno-unknown-pragmas -fomit-frame-pointer -fno-stack-protector"
-    env["CPPFLAGS"] += " -MMD -DBIGARRAY_MULTIPLIER=1 -DUSING_XED -DTARGET_IA32E -DHOST_IA32E -fPIC -DTARGET_LINUX"
+    env["CPPFLAGS"] += " -g -std=c++0x -Wall -Wno-unknown-pragmas -fomit-frame-pointer -fno-stack-protector -Wno-error=unused-function"
+    env["CPPFLAGS"] += " -MMD -DBIGARRAY_MULTIPLIER=1 -DUSING_XED -DTARGET_IA32E -DHOST_IA32E -fPIC -DTARGET_LINUX -fabi-version=2 -D_GLIBCXX_USE_CXX11_ABI=0"
 
     # Pin 2.12+ kits have changed the layout of includes, detect whether we need
     # source/include/ or source/include/pin/
@@ -66,7 +66,8 @@ def buildSim(cppFlags, dir, type, pgo=None):
 
     env["CPPPATH"] = [xedPath,
             pinInclDir, joinpath(pinInclDir, "gen"),
-            joinpath(PINPATH, "extras/components/include")]
+            joinpath(PINPATH, "extras/components/include"),
+            "/usr/include/hdf5/serial"]
 
     # Perform trace logging?
     ##env["CPPFLAGS"] += " -D_LOG_TRACE_=1"
@@ -89,8 +90,10 @@ def buildSim(cppFlags, dir, type, pgo=None):
     # systems, Pin's libelf takes precedence over the system's, but it does not
     # include symbols that we need or it's a different variant (we need
     # libelfg0-dev in Ubuntu systems)
-    env["PINLIBPATH"] = ["/usr/lib", "/usr/lib/x86_64-linux-gnu", joinpath(PINPATH, "extras/" + xedName + "-intel64/lib"),
-            joinpath(PINPATH, "intel64/lib"), joinpath(PINPATH, "intel64/lib-ext")]
+    env["PINLIBPATH"] = ["/usr/lib", "/usr/lib/x86_64-linux-gnu"]
+    env["PINLIBPATH"] += [joinpath(PINPATH, "extras/" + xedName + "-intel64/lib"),
+            joinpath(PINPATH, "intel64/lib"),
+            joinpath(PINPATH, "intel64/lib-ext")]
 
     # Libdwarf is provided in static and shared variants, Ubuntu only provides
     # static, and I don't want to add -R<pin path/intel64/lib-ext> because
@@ -143,6 +146,7 @@ def buildSim(cppFlags, dir, type, pgo=None):
     env["CPPPATH"] += ["."]
 
     # HDF5
+    env["PINLIBPATH"] += ["/usr/lib/x86_64-linux-gnu/hdf5/serial"]
     env["PINLIBS"] += ["hdf5", "hdf5_hl"]
 
     # Harness needs these defined
