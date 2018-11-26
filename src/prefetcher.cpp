@@ -37,7 +37,8 @@ void StreamPrefetcher::setParents(uint32_t _childId, const g_vector<MemObject*>&
 }
 
 void StreamPrefetcher::setChildren(const g_vector<BaseCache*>& children, Network* network) {
-    if (children.size() != 1) panic("Must have one children");
+
+    if (children.size() != 1) panic("Must have one children. Has %lu.\n", children.size());
     if (network) panic("Network not handled");
     child = children[0];
 }

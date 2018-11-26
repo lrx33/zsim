@@ -377,7 +377,16 @@ CacheGroup* BuildCacheGroup(Config& config, const string& name, bool isTerminal)
 
     string prefix = "sys.caches." + name + ".";
 
+    info("%s: %s, isTerm=%d", __func__, name.c_str(), isTerminal);
+
     bool isPrefetcher = config.get<bool>(prefix + "isPrefetcher", false);
+
+    // if(isPrefetcher == false)
+    //   panic("%sisPrefetcher: PreFetcher config is False.\n", prefix.c_str());
+
+    // if(isPrefetcher == true)
+    //   panic("%sisPrefetcher: PreFetcher config is True.\n", prefix.c_str());
+
     if (isPrefetcher) { //build a prefetcher group
         uint32_t prefetchers = config.get<uint32_t>(prefix + "prefetchers", 1);
         cg.resize(prefetchers);
@@ -444,6 +453,8 @@ static void InitSystem(Config& config) {
 
     for (const char* grp : cacheGroupNames) {
         string group(grp);
+        info("cg = %s", group.c_str());
+
         if (group == "mem") panic("'mem' is an invalid cache group name");
         if (childMap.count(group)) panic("Duplicate cache group %s", (prefix + group).c_str());
 
