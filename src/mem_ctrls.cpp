@@ -54,6 +54,8 @@ uint64_t SimpleMemory::access(MemReq& req) {
         eventRecorders[req.srcId]->pushRecord(tr);
     }
 */
+
+    // info("MemAcc: in %lu , out %lu", req.cycle, respCycle);
     return respCycle;
 }
 
