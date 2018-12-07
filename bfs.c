@@ -24,7 +24,7 @@ struct node {
 int main(int argc, char *argv[]) {
 
     size_t num = 15;
-    printf("argc = %d\n", argc);
+    /* printf("argc = %d\n", argc); */
     if(argc == 2) {
         num = atol(argv[1]);
     }
@@ -65,9 +65,9 @@ int main(int argc, char *argv[]) {
             graph[i]->right = NULL;
     }
 
-    for(i = 0; i < num; i++) {
-        printf("id %d, addr %p, left %p, right %p\n", graph[i]->id, graph[i], graph[i]->left, graph[i]->right);
-    }
+    /* for(i = 0; i < num; i++) { */
+    /*     printf("id %d, addr %p, left %p, right %p\n", graph[i]->id, graph[i], graph[i]->left, graph[i]->right); */
+    /* } */
 
     /* Graph creation complete. Nodes are randomly assigned and chained.
        Now we perform BFS on the obtained graph */
@@ -103,13 +103,14 @@ int main(int argc, char *argv[]) {
         }
 
         visited[queue[cur]->id] = true;
-        printf("%d, ", queue[cur]->id);
+        /* printf("%d, ", queue[cur]->id); */
 
         cur++;
 
         if(maxq > num) {
             printf("WTF\n");
         }
+
         /* printf("cur = %d, maxq = %d\n", cur, maxq); */
     }
 
