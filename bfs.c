@@ -10,16 +10,7 @@
 #include<stdlib.h>
 #include<stdbool.h>
 #include<string.h>
-
-struct node {
-    int id;
-    int value1;
-    int value2;
-    int value3;
-    int value4;
-
-    struct node *left, *right;
-};
+#include "graphetch/graphnode.h"
 
 int main(int argc, char *argv[]) {
 
@@ -46,7 +37,6 @@ int main(int argc, char *argv[]) {
 
         graph[i]->id = i;
     }
-
 
     for(i = 0; i < num; i++) {
         int l = (2*i) + 1;
