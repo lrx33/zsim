@@ -911,6 +911,9 @@ void SimInit(const char* configFile, const char* outputDir, uint32_t shmid) {
 
     zinfo->numDomains = config.get<uint32_t>("sim.domains", 1);
     uint32_t numSimThreads = config.get<uint32_t>("sim.contentionThreads", MAX((uint32_t)1, zinfo->numDomains/2)); //gives a bit of parallelism, TODO tune
+
+    info("numSimThreads = %u", numSimThreads);
+    
     zinfo->contentionSim = new ContentionSim(zinfo->numDomains, numSimThreads);
     zinfo->contentionSim->initStats(zinfo->rootStat);
     zinfo->eventRecorders = gm_calloc<EventRecorder*>(zinfo->numCores);

@@ -87,6 +87,9 @@ uint64_t MESIBottomCC::processEviction(Address wbLineAddr, uint32_t lineId, bool
 uint64_t MESIBottomCC::processAccess(Address lineAddr, uint32_t lineId, AccessType type, uint64_t cycle, uint32_t srcId, uint32_t flags) {
     uint64_t respCycle = cycle;
     MESIState* state = &array[lineId];
+
+    info("MesiBOTTOM: process t=%d", type);
+
     switch (type) {
         // A PUTS/PUTX does nothing w.r.t. higher coherence levels --- it dies here
         case PUTS: //Clean writeback, nothing to do (except profiling)
@@ -105,6 +108,9 @@ uint64_t MESIBottomCC::processAccess(Address lineAddr, uint32_t lineId, AccessTy
             if (*state == I) {
                 uint32_t parentId = getParentId(lineAddr);
                 MemReq req = {lineAddr, GETS, selfId, state, cycle, &ccLock, *state, srcId, flags};
+
+                info("access with reqt = %d", req.type);
+
                 uint32_t nextLevelLat = parents[parentId]->access(req) - cycle;
                 uint32_t netLat = parentRTTs[parentId];
                 profGETNextLevelLat.inc(nextLevelLat);
@@ -147,6 +153,8 @@ uint64_t MESIBottomCC::processAccess(Address lineAddr, uint32_t lineId, AccessTy
         default: panic("!?");
     }
     assert_msg(respCycle >= cycle, "XXX %ld %ld", respCycle, cycle);
+
+    info("MesiBOTTOM: Done: %lu", respCycle);
     return respCycle;
 }
 
@@ -263,6 +271,7 @@ uint64_t MESITopCC::processAccess(Address lineAddr, uint32_t lineId, AccessType 
                                   MESIState* childState, bool* inducedWriteback, uint64_t cycle, uint32_t srcId, uint32_t flags) {
     Entry* e = &array[lineId];
     uint64_t respCycle = cycle;
+    info("MesiTOPCC: process");
     switch (type) {
         case PUTX:
             assert(e->isExclusive());

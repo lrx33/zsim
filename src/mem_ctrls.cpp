@@ -29,6 +29,7 @@
 #include "zsim.h"
 
 uint64_t SimpleMemory::access(MemReq& req) {
+    info("MemAcc: type %d", req.type);
     switch (req.type) {
         case PUTS:
         case PUTX:
@@ -54,8 +55,8 @@ uint64_t SimpleMemory::access(MemReq& req) {
         eventRecorders[req.srcId]->pushRecord(tr);
     }
 */
+    info("MemAcc: %lu , out %lu(%d)", req.cycle, respCycle, req.type);
 
-    info("MemAcc: %u: %lu , out %lu", req.srcId, req.cycle, respCycle);
     return respCycle;
 }
 

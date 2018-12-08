@@ -30,6 +30,17 @@
 #include "timing_event.h"
 #include "zsim.h"
 
+#define _GRAPHETCH 
+
+#ifdef _GRAPHETCH
+// #include <map>
+// map<uint64_t, uint64_t> MCBuffer;
+
+uint64_t lastResp = 0;
+int64_t doneSince = 0;
+
+#endif
+
 Cache::Cache(uint32_t _numLines, CC* _cc, CacheArray* _array, ReplPolicy* _rp, uint32_t _accLat, uint32_t _invLat, const g_string& _name)
     : cc(_cc), array(_array), rp(_rp), numLines(_numLines), accLat(_accLat), invLat(_invLat), name(_name) {}
 
@@ -61,6 +72,7 @@ void Cache::initCacheStats(AggregateStat* cacheStat) {
 uint64_t Cache::access(MemReq& req) {
     uint64_t respCycle = req.cycle;
     bool skipAccess = cc->startAccess(req); //may need to skip access due to races (NOTE: may change req.type!)
+
     if (likely(!skipAccess)) {
         bool updateReplacement = (req.type == GETS) || (req.type == GETX);
         int32_t lineId = array->lookup(req.lineAddr, &req, updateReplacement);
@@ -86,11 +98,42 @@ uint64_t Cache::access(MemReq& req) {
         if (unlikely(evRec && evRec->hasRecord())) {
             wbAcc = evRec->popRecord();
         }
+#ifdef _GRAPHETCH
 
-        // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
+#define LLC "l2-0" /* Change this manually for now when graphetch.cfg changes */
+#define SIMPLE_MEMORY_LATENCY 100
+        // METHOD 1: Squeeze in requests when there was enough gap available.
+        // Fetch normally in all cases to let Cache Controllers do their thing (Maybe should change this?).
+        // reset respCycle to 0 if Graphetch'd!
+
+        int64_t diff = req.cycle - lastdone;
+        assert(diff > 0);
+
+        if((req.cycle - lastdone) >= SIMPLE_MEMORY_LATENCY) {
+            doneSince += (req.cycle - lastdone) / SIMPLE_MEMORY_LATENCY;
+            info("cache: %s", name.c_str());
+        
+        }
+
+        if ((req.type == GETS || req.type == GETX) && (req.is(GRAPHETCH)) && (name == LLC)) {
+
+            if(doneSince > 0) {
+                doneSince--;
+
+                respCycle = cc->processAccess(req, lineId, respCycle);
+                respCycle = req.cycle;
+            }
+            else {
+                respCycle = cc->processAccess(req, lineId, respCycle);
+            }
+
+            lastDone = respCycle;
+        }
+#else
         //     info("%s: inLat %lu(%s)", name.c_str(), respCycle, (req.type == GETS || req.type == GETX) ? "GET" : "PUT" );
 
         respCycle = cc->processAccess(req, lineId, respCycle);
+#endif
 
         // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
         //     info("%s: outLat %lu(%s)", name.c_str(), respCycle,  (req.type == GETS || req.type == GETX) ? "GET" : "PUT");
@@ -104,6 +147,8 @@ uint64_t Cache::access(MemReq& req) {
                 evRec->pushRecord(wbAcc);
             } else {
                 // Connect both events
+                info("Timing..");
+
                 TimingRecord acc = evRec->popRecord();
                 assert(wbAcc.reqCycle >= req.cycle);
                 assert(acc.reqCycle >= req.cycle);
