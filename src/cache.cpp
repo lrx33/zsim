@@ -31,7 +31,7 @@
 #include "zsim.h"
 
 #define _GRAPHETCH 
-//#undef _GRAPHETCH
+#undef _GRAPHETCH
 
 #ifdef _GRAPHETCH
 #include <map>
@@ -154,6 +154,10 @@ uint64_t Cache::access(MemReq& req) {
 #else
 
         respCycle = cc->processAccess(req, lineId, respCycle);
+        if ((req.type == GETS || req.type == GETX)  && (name == "l2-0")) {
+            info("in %lu, out %lu", req.cycle + 10, respCycle); // +10 for l2 lookup latency
+        }
+
 #endif
 
         // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
@@ -168,7 +172,7 @@ uint64_t Cache::access(MemReq& req) {
                 evRec->pushRecord(wbAcc);
             } else {
                 // Connect both events
-                info("Timing..");
+                //                info("Timing..");
 
                 TimingRecord acc = evRec->popRecord();
                 assert(wbAcc.reqCycle >= req.cycle);

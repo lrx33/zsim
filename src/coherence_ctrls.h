@@ -347,7 +347,7 @@ class MESICC : public CC {
 
         uint64_t processAccess(const MemReq& req, int32_t lineId, uint64_t startCycle, uint64_t* getDoneCycle = nullptr) {
             uint64_t respCycle = startCycle;
-            info("MESICC: process");
+            /* info("MESICC: process"); */
 
             //Handle non-inclusive writebacks by bypassing
             //NOTE: Most of the time, these are due to evictions, so the line is not there. But the second condition can trigger in NUCA-initiated
@@ -358,7 +358,7 @@ class MESICC : public CC {
                 assert(nonInclusiveHack);
                 assert((req.type == PUTS) || (req.type == PUTX));
 
-                info("CC: process: NonInclWB");
+                /* info("CC: process: NonInclWB"); */
                 respCycle = bcc->processNonInclusiveWriteback(req.lineAddr, req.type, startCycle, req.state, req.srcId, req.flags);
             } else {
                 //Prefetches are side requests and get handled a bit differently
@@ -367,7 +367,7 @@ class MESICC : public CC {
                 uint32_t flags = req.flags & ~MemReq::PREFETCH; //always clear PREFETCH, this flag cannot propagate up
 
                 //if needed, fetch line or upgrade miss from upper level
-                info("CC: bcc---->");
+                /* info("CC: bcc---->"); */
                 respCycle = bcc->processAccess(req.lineAddr, lineId, req.type, startCycle, req.srcId, flags);
                 /* info("CC: process: Case 2: DONE BCC"); */
 
@@ -377,7 +377,7 @@ class MESICC : public CC {
                    //At this point, the line is in a good state w.r.t. upper levels
                     bool lowerLevelWriteback = false;
                     //change directory info, invalidate other children if needed, tell requester about its state
-                    info("CC: tcc---->");
+                    /* info("CC: tcc---->"); */
                     respCycle = tcc->processAccess(req.lineAddr, lineId, req.type, req.childId, bcc->isExclusive(lineId), req.state,
                             &lowerLevelWriteback, respCycle, req.srcId, flags);
                     /* info("CC: process: Case 2: DONE TCC"); */
@@ -477,13 +477,13 @@ class MESITerminalCC : public CC {
         }
 
         uint64_t processAccess(const MemReq& req, int32_t lineId, uint64_t startCycle,  uint64_t* getDoneCycle = nullptr) {
-            info("MesiTERMINALCC: process t=%d", req.type);
+            /* info("MesiTERMINALCC: process t=%d", req.type); */
             assert(lineId != -1);
             assert(!getDoneCycle);
             //if needed, fetch line or upgrade miss from upper level
             uint64_t respCycle = bcc->processAccess(req.lineAddr, lineId, req.type, startCycle, req.srcId, req.flags);
             //at this point, the line is in a good state w.r.t. upper levels
-            info("MesiTERMINALCC: ret %lu", respCycle);
+            /* info("MesiTERMINALCC: ret %lu", respCycle); */
             return respCycle;
         }
 
