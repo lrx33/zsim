@@ -77,6 +77,8 @@ int main(int argc, char *argv[]) {
 
 		zsim_roi_begin();
 
+		zsim_roi_begin();
+
     /* Graph creation complete. Nodes are randomly assigned and chained.
        Now we perform BFS on the obtained graph */
 		// zsim_graph_node((uint64_t)&graph[0]);
