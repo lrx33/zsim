@@ -10,14 +10,14 @@
 #include<stdlib.h>
 #include<stdbool.h>
 #include<string.h>
-
+#include "zsim_hooks.h"
 struct node {
     int id;
     int value1;
     int value2;
     int value3;
     int value4;
-
+	bool isLeafNode;
     struct node *left, *right;
 };
 
@@ -54,23 +54,32 @@ int main(int argc, char *argv[]) {
 
         if(l < num) {
             graph[i]->left = graph[l];
-        }
-        else
+						graph[i]->isLeafNode = false;
+				}
+        else {
             graph[i]->left = NULL;
+						graph[i]->isLeafNode = true;
+				}
 
         if(r < num) {
             graph[i]->right = graph[r];
+						graph[i]->isLeafNode = false;
         }
-        else
+        else {
             graph[i]->right = NULL;
+						graph[i]->isLeafNode = true;
+				}
     }
 
     for(i = 0; i < num; i++) {
         printf("id %d, addr %p, left %p, right %p\n", graph[i]->id, graph[i], graph[i]->left, graph[i]->right);
     }
 
+		zsim_roi_begin();
+
     /* Graph creation complete. Nodes are randomly assigned and chained.
        Now we perform BFS on the obtained graph */
+		// zsim_graph_node((uint64_t)&graph[0]);
     struct node *root = graph[0];
     struct node **queue = malloc(num * sizeof(struct node *));
     bool *visited = (bool *) malloc(num * sizeof(bool));
@@ -86,6 +95,7 @@ int main(int argc, char *argv[]) {
     int cur = maxq - 1; /* Current index in queue being processed */
 
     while(cur < maxq) {
+						zsim_graph_node((uint64_t)&graph[0]);
 
         /* printf("Processing %p\n", queue[cur]); */
         /* printf("id %d, maxq %d\n", queue[cur]->id, maxq); */
@@ -98,13 +108,13 @@ int main(int argc, char *argv[]) {
 
         /* printf("%p, left %p, right %p\n", queue[cur], queue[cur]->left, queue[cur]->right); */
         if(queue[cur] -> right) {
+						//zsim_graph_node(&queue[cur]);
             queue[maxq] = queue[cur]->right;
             maxq++;
         }
 
         visited[queue[cur]->id] = true;
         printf("%d, ", queue[cur]->id);
-
         cur++;
 
         if(maxq > num) {
@@ -112,6 +122,6 @@ int main(int argc, char *argv[]) {
         }
         /* printf("cur = %d, maxq = %d\n", cur, maxq); */
     }
-
+		zsim_roi_end();
     return 0;
 }

@@ -49,6 +49,7 @@ class VectorCounter;
 class AccessTraceWriter;
 class TraceDriver;
 template <typename T> class g_vector;
+//std::list<uint64_t> graphNode;
 
 struct ClockDomainInfo {
     uint64_t realtimeOffsetNs;

@@ -45,6 +45,7 @@
 #include "event_queue.h"
 #include "filter_cache.h"
 #include "galloc.h"
+#include "graph_prefetcher.h"
 #include "hash.h"
 #include "ideal_arrays.h"
 #include "locks.h"
@@ -395,7 +396,11 @@ CacheGroup* BuildCacheGroup(Config& config, const string& name, bool isTerminal)
             stringstream ss;
             ss << name << "-" << i;
             g_string pfName(ss.str().c_str());
-            cg[i][0] = new StreamPrefetcher(pfName);
+				//		g_string type = "Graph";
+				//		int degree = 2;
+				//		int depth = 4;
+            cg[i][0] = new GraphPrefetcher(pfName, "Graph", 2, 4, 2);
+        //    cg[i][0] = new StreamPrefetcher(pfName);
         }
         return cgp;
     }
