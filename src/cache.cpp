@@ -87,7 +87,13 @@ uint64_t Cache::access(MemReq& req) {
             wbAcc = evRec->popRecord();
         }
 
+        // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
+        //     info("%s: inLat %lu(%s)", name.c_str(), respCycle, (req.type == GETS || req.type == GETX) ? "GET" : "PUT" );
+
         respCycle = cc->processAccess(req, lineId, respCycle);
+
+        // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
+        //     info("%s: outLat %lu(%s)", name.c_str(), respCycle,  (req.type == GETS || req.type == GETX) ? "GET" : "PUT");
 
         // Access may have generated another timing record. If *both* access
         // and wb have records, stitch them together

@@ -182,6 +182,7 @@ void MESIBottomCC::processInval(Address lineAddr, uint32_t lineId, InvType type,
             break;
         default: panic("!?");
     }
+
     //NOTE: BottomCC never calls up on an invalidate, so it adds no extra latency
 }
 

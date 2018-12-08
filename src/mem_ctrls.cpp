@@ -55,7 +55,7 @@ uint64_t SimpleMemory::access(MemReq& req) {
     }
 */
 
-    // info("MemAcc: in %lu , out %lu", req.cycle, respCycle);
+    info("MemAcc: %u: %lu , out %lu", req.srcId, req.cycle, respCycle);
     return respCycle;
 }
 

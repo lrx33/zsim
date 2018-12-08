@@ -27,6 +27,7 @@
 #define COHERENCE_CTRLS_H_
 
 #include <bitset>
+
 #include "constants.h"
 #include "g_std/g_string.h"
 #include "g_std/g_vector.h"
@@ -352,29 +353,38 @@ class MESICC : public CC {
             //but if we do proper NI/EX mid-level caches backed by directories, this may start becoming more common (and it is perfectly acceptable to
             //upgrade without any interaction with the parent... the child had the permissions!)
             if (lineId == -1 || (((req.type == PUTS) || (req.type == PUTX)) && !bcc->isValid(lineId))) { //can only be a non-inclusive wback
+                /* info("CC: process: Case 1"); */
                 assert(nonInclusiveHack);
                 assert((req.type == PUTS) || (req.type == PUTX));
                 respCycle = bcc->processNonInclusiveWriteback(req.lineAddr, req.type, startCycle, req.state, req.srcId, req.flags);
             } else {
                 //Prefetches are side requests and get handled a bit differently
-                bool isPrefetch = req.flags & MemReq::PREFETCH;
+                 bool isPrefetch = req.flags & MemReq::PREFETCH;
                 assert(!isPrefetch || req.type == GETS);
                 uint32_t flags = req.flags & ~MemReq::PREFETCH; //always clear PREFETCH, this flag cannot propagate up
 
                 //if needed, fetch line or upgrade miss from upper level
+                /* info("CC: process: Case 2: DOING BCC"); */
                 respCycle = bcc->processAccess(req.lineAddr, lineId, req.type, startCycle, req.srcId, flags);
+                /* info("CC: process: Case 2: DONE BCC"); */
+
                 if (getDoneCycle) *getDoneCycle = respCycle;
                 if (!isPrefetch) { //prefetches only touch bcc; the demand request from the core will pull the line to lower level
-                    //At this point, the line is in a good state w.r.t. upper levels
+
+                   //At this point, the line is in a good state w.r.t. upper levels
                     bool lowerLevelWriteback = false;
                     //change directory info, invalidate other children if needed, tell requester about its state
+                    /* info("CC: process: Case 2: DOING TCC"); */
                     respCycle = tcc->processAccess(req.lineAddr, lineId, req.type, req.childId, bcc->isExclusive(lineId), req.state,
                             &lowerLevelWriteback, respCycle, req.srcId, flags);
+                    /* info("CC: process: Case 2: DONE TCC"); */
                     if (lowerLevelWriteback) {
                         //Essentially, if tcc induced a writeback, bcc may need to do an E->M transition to reflect that the cache now has dirty data
                         bcc->processWritebackOnAccess(req.lineAddr, lineId, req.type);
                     }
                 }
+                /* else */
+                /*     info("CC: process: Case 2: NOT "); */
             }
             return respCycle;
         }

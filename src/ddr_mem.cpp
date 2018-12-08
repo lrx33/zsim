@@ -257,7 +257,8 @@ uint64_t DDRMemory::access(MemReq& req) {
     }
 
     if (req.type == PUTS) {
-        // info("ddr: inlat: %lu, outlat %lu", req.cycle, req.cycle);
+
+        info("ddr: inlat: %lu, outlat %lu", req.cycle, req.cycle);
         return req.cycle; //must return an absolute value, 0 latency
     } else {
         bool isWrite = (req.type == PUTX);
@@ -270,7 +271,8 @@ uint64_t DDRMemory::access(MemReq& req) {
             zinfo->eventRecorders[req.srcId]->pushRecord(tr);
         }
         //info("Access to %lx at %ld, %ld latency", req.lineAddr, req.cycle, minLatency);
-        // info("ddr: inlat: %lu, outlat %lu", req.cycle, respCycle);
+
+        info("ddr: inlat: %lu, outlat %lu", req.cycle, respCycle);
         return respCycle;
     }
 }
