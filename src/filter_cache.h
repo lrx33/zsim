@@ -30,6 +30,7 @@
 #include "cache.h"
 #include "galloc.h"
 #include "zsim.h"
+#include <list>
 
 /* Extends Cache with an L0 direct-mapped cache, optimized to hell for hits
  *
@@ -41,6 +42,7 @@
  * it is fine to do this without grabbing a lock.
  */
 
+extern std::list<uint64_t> graphNode;
 class FilterCache : public Cache {
     private:
         struct FilterEntry {
@@ -130,6 +132,16 @@ class FilterCache : public Cache {
             MESIState dummyState = MESIState::I;
             futex_lock(&filterLock);
             MemReq req = {pLineAddr, isLoad? GETS : GETX, 0, &dummyState, curCycle, &filterLock, dummyState, srcId, reqFlags};
+
+            /* Check if its a graph node request */
+            for(std::list<uint64_t>::const_iterator it = graphNode.begin(); it != graphNode.end(); ++it) {
+
+                if (pLineAddr == *it) {
+                    info("Found node if SWARM");
+                    req.set(MemReq::GRAPHETCH);
+                }
+            }
+
             uint64_t respCycle  = access(req);
 
             //Due to the way we do the locking, at this point the old address might be invalidated, but we have the new address guaranteed until we release the lock

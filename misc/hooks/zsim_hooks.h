@@ -14,6 +14,9 @@
 #define ZSIM_MAGIC_OP_HEARTBEAT         (1028)
 #define ZSIM_MAGIC_OP_WORK_BEGIN        (1029) //ubik
 #define ZSIM_MAGIC_OP_WORK_END          (1030) //ubik
+#define ZSIM_MAGIC_OP_CACHE_TILE_START  (1031)
+#define ZSIM_MAGIC_OP_CACHE_TILE_END    (1032)
+#define ZSIM_MAGIC_OP_GRAPH             (1033)
 
 #ifdef __x86_64__
 #define HOOKS_STR  "HOOKS"
@@ -22,12 +25,26 @@ static inline void zsim_magic_op(uint64_t op) {
     __asm__ __volatile__("xchg %%rcx, %%rcx;" : : "c"(op));
     COMPILER_BARRIER();
 }
+
+static inline void zsim_magic_op_graph (uint64_t op, uint64_t address) {
+    printf("Cache Tile Begin with address %x\n", address);
+    COMPILER_BARRIER();
+    __asm__ __volatile__("xchg %%rdi, %%rdi;" : : "D"(address));
+    __asm__ __volatile__("xchg %%rbx, %%rbx;" : : "b"(op));
+    COMPILER_BARRIER();
+}
+
 #else
 #define HOOKS_STR  "NOP-HOOKS"
 static inline void zsim_magic_op(uint64_t op) {
     //NOP
 }
 #endif
+
+static void zsim_graph_node(uint64_t address) {
+    printf("[" HOOKS_STR "] GRAPH HOOK ");
+    zsim_magic_op_graph(ZSIM_MAGIC_OP_GRAPH, address);
+}
 
 static inline void zsim_roi_begin() {
     printf("[" HOOKS_STR "] ROI begin\n");
