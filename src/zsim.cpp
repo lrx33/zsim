@@ -102,6 +102,7 @@ Address procMask;
 
 static ProcessTreeNode* procTreeNode;
 
+std::list<uint32_t> graphNode;
 //tid to cid translation
 #define INVALID_CID ((uint32_t)-1)
 #define UNINITIALIZED_CID ((uint32_t)-2) //Value set at initialization
@@ -141,7 +142,9 @@ VOID SimThreadStart(THREADID tid);
 VOID SimThreadFini(THREADID tid);
 VOID SimEnd();
 
+VOID HandleMagicOpGraph(THREADID tid, ADDRINT op, ADDRINT address);
 VOID HandleMagicOp(THREADID tid, ADDRINT op);
+VOID HandleMagicOpCache(THREADID tid, ADDRINT op, ADDRINT address, ADDRINT size);
 
 VOID FakeCPUIDPre(THREADID tid, REG eax, REG ecx);
 VOID FakeCPUIDPost(THREADID tid, ADDRINT* eax, ADDRINT* ebx, ADDRINT* ecx, ADDRINT* edx); //REG* eax, REG* ebx, REG* ecx, REG* edx);
@@ -563,6 +566,7 @@ VOID Instruction(INS ins) {
         }
 
         // Instrument only conditional branches
+				// Why have we changed this?
         if (INS_Category(ins) == XED_CATEGORY_COND_BR && !INS_IsXend(ins)) {
             INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) IndirectRecordBranch, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID,
                     IARG_INST_PTR, IARG_BRANCH_TAKEN, IARG_BRANCH_TARGET_ADDR, IARG_FALLTHROUGH_ADDR, IARG_END);
@@ -576,9 +580,15 @@ VOID Instruction(INS ins) {
      */
     if (INS_IsXchg(ins) && INS_OperandReg(ins, 0) == REG_RCX && INS_OperandReg(ins, 1) == REG_RCX) {
         //info("Instrumenting magic op");
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) HandleMagicOp, IARG_THREAD_ID, IARG_REG_VALUE, REG_ECX, IARG_END);
+				// So if this exch instruction is called, the HandleMagicOp function is placed.
+				INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) HandleMagicOp, IARG_THREAD_ID, IARG_REG_VALUE, REG_ECX, IARG_END);
     }
-
+// We are doing something here on the NOP we created.
+    if (INS_IsXchg(ins) && INS_OperandReg(ins, 0) == REG_RBX && INS_OperandReg(ins, 1) == REG_RBX) {
+        info("Instrumenting magic op for cache");
+				// So if this exch instruction is called, the HandleMagicOpCache function is placed. Following are args.
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) HandleMagicOpGraph, IARG_THREAD_ID, IARG_REG_VALUE, REG_RBX, IARG_REG_VALUE, REG_RDI, IARG_END);
+    }
     if (INS_Opcode(ins) == XED_ICLASS_CPUID) {
        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) FakeCPUIDPre, IARG_THREAD_ID, IARG_REG_VALUE, REG_EAX, IARG_REG_VALUE, REG_ECX, IARG_END);
        INS_InsertCall(ins, IPOINT_AFTER, (AFUNPTR) FakeCPUIDPost, IARG_THREAD_ID, IARG_REG_REFERENCE, REG_EAX,
@@ -1132,7 +1142,66 @@ VOID SimEnd() {
 #define ZSIM_MAGIC_OP_ROI_END           (1026)
 #define ZSIM_MAGIC_OP_REGISTER_THREAD   (1027)
 #define ZSIM_MAGIC_OP_HEARTBEAT         (1028)
+#define ZSIM_MAGIC_OP_CACHE_TILE_START  (1031)
+#define ZSIM_MAGIC_OP_CACHE_TILE_END    (1032)
+#define ZSIM_MAGIC_OP_GRAPH							(1033)
+ // Adding code to handle the magic ops? 
+// What should I be doing here?
+VOID HandleMagicOpGraph(THREADID tid, ADDRINT op, ADDRINT op2) {
+	if (op == ZSIM_MAGIC_OP_GRAPH) {
+		graphNode.push_back(op2);
+		info("Node op2 %lu isleaf %d", op2, *(int*)op2);
+	} else {
+		fprintf(stderr, "Should not happen\n");
+	}
+}
 
+
+//VOID HandleMagicOpCache(THREADID tid, ADDRINT op, ADDRINT op2, ADDRINT op3) {
+//    switch (op) {
+//        case ZSIM_MAGIC_OP_CACHE_TILE_START:
+//            if (magicOpCount == 0) {
+//                //set core's tile address and size
+//                cores[getCid(tid)]->setTileAddress(tileNums[tid], (op2 >> 6) << 6);
+//                cores[getCid(tid)]->setTileWidth(tileNums[tid], op3);
+//                // new tile or change in addresses, set active as false
+//                cores[getCid(tid)]->setActive(tileNums[tid], false);
+//                magicOpCount++;
+//            } else if (magicOpCount == 1) {
+//                //set core's total size and tile height
+//                cores[getCid(tid)]->setTotalWidth(tileNums[tid], op2);
+//                cores[getCid(tid)]->setTileHeight(tileNums[tid], op3);
+//                magicOpCount++;
+//            } else if (magicOpCount == 2) {
+//                //set core's tile name?? and priority
+//                cores[getCid(tid)]->setName(tileNums[tid], op2);
+//                cores[getCid(tid)]->setPrio(tileNums[tid], op3);
+//                //XMem TODO why is thing being set here??
+//                cores[getCid(tid)]->setPatternType(tileNums[tid], 0);
+//                cores[getCid(tid)]->setStride(tileNums[tid], 1);
+//                magicOpCount++;
+//            } else if (magicOpCount == 3) {
+//                //set core's tile pattern type, stride
+//                cores[getCid(tid)]->setPatternType(tileNums[tid], op2);
+//                cores[getCid(tid)]->setStride(tileNums[tid], (int)op3);
+//                // all info regarding tile is received, set it as active
+//                cores[getCid(tid)]->setActive(tileNums[tid],true);
+//                tileNums[tid]++;
+//                magicOpCount = 0;
+//            } else {
+//                info("invalid magic op count");
+//            }
+//            return;
+//        case ZSIM_MAGIC_OP_CACHE_TILE_END:
+//            tileNums[tid]--;
+//            cores[getCid(tid)]->eraseTile(tileNums[tid]);
+//            cores[getCid(tid)]->setReset(tileNums[tid], true);
+//            cores[getCid(tid)]->setActive(tileNums[tid], false);
+//            return;
+//        default:
+//            panic("Thread %d issued unknown magic op %ld!", tid, op);
+//    }
+//}
 VOID HandleMagicOp(THREADID tid, ADDRINT op) {
     switch (op) {
         case ZSIM_MAGIC_OP_ROI_BEGIN:
