@@ -10,11 +10,11 @@
 #include<stdlib.h>
 #include<stdbool.h>
 #include<string.h>
-#include "graphetch/graphnode.h"
+#include "graphnode.h"
 
 int main(int argc, char *argv[]) {
 
-    size_t num = 15;
+    size_t num = 100;
     /* printf("argc = %d\n", argc); */
     if(argc == 2) {
         num = atol(argv[1]);
