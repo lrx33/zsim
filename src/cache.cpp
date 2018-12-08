@@ -31,10 +31,17 @@
 #include "zsim.h"
 
 #define _GRAPHETCH 
+//#undef _GRAPHETCH
 
 #ifdef _GRAPHETCH
-// #include <map>
-// map<uint64_t, uint64_t> MCBuffer;
+#include <map>
+#include <vector>
+#include <algorithm>
+
+std::vector<uint64_t> MCnodelist;
+std::map<uint64_t, uint64_t> MCnodestatus;
+
+#include "graphetch/graphnode.h"
 
 uint64_t lastResp = 0;
 int64_t doneSince = 0;
@@ -98,39 +105,53 @@ uint64_t Cache::access(MemReq& req) {
         if (unlikely(evRec && evRec->hasRecord())) {
             wbAcc = evRec->popRecord();
         }
+
 #ifdef _GRAPHETCH
 
 #define LLC "l2-0" /* Change this manually for now when graphetch.cfg changes */
-#define SIMPLE_MEMORY_LATENCY 100
-        // METHOD 1: Squeeze in requests when there was enough gap available.
-        // Fetch normally in all cases to let Cache Controllers do their thing (Maybe should change this?).
-        // reset respCycle to 0 if Graphetch'd!
+#define SIMPLE_MEMORY_LATENCY 100 /* Change manually if graphetch.cfg changes for now... */
 
-        int64_t diff = req.cycle - lastdone;
+        // METHOD 1: Squeeze in requests when there was enough time available.
+        // Fetch normally in all cases to let Cache Controllers do their thing (Maybe should change this?).
+        // reset respCycle to 0 if Graphetch'd! This is the OPTIMAL version of this method => we prefetched
+        // the node that is now being requested (we can predict the future)
+        int64_t diff = req.cycle - lastResp;
         assert(diff > 0);
 
-        if((req.cycle - lastdone) >= SIMPLE_MEMORY_LATENCY) {
-            doneSince += (req.cycle - lastdone) / SIMPLE_MEMORY_LATENCY;
-            info("cache: %s", name.c_str());
-        
+        if(diff >= SIMPLE_MEMORY_LATENCY) {
+            doneSince += (diff / SIMPLE_MEMORY_LATENCY);
         }
 
-        if ((req.type == GETS || req.type == GETX) && (req.is(GRAPHETCH)) && (name == LLC)) {
+        bool isGraphetch = req.flags & MemReq::GRAPHETCH;
+        if ((req.type == GETS || req.type == GETX) && isGraphetch && (name == LLC)) {
 
-            if(doneSince > 0) {
-                doneSince--;
+            std::vector<uint64_t>::iterator it = find(MCnodelist.begin(), MCnodelist.end(), req.lineAddr);
 
-                respCycle = cc->processAccess(req, lineId, respCycle);
-                respCycle = req.cycle;
+            if(it == MCnodelist.end()) {
+                struct node *thisnode = (struct node *) (req.lineAddr);
+
+                if(thisnode->left)
+                    MCnodelist.push_back((uint64_t) (thisnode->left));
+
+                if(thisnode->right)
+                    MCnodelist.push_back((uint64_t) (thisnode->right));
             }
             else {
-                respCycle = cc->processAccess(req, lineId, respCycle);
+                if(doneSince > 0) {
+                    doneSince--;
+                    respCycle = cc->processAccess(req, lineId, respCycle);
+                    respCycle = req.cycle;
+
+                    MCnodelist.erase(it);
+                }
+                else {
+                    respCycle = cc->processAccess(req, lineId, respCycle);
+                }
             }
 
-            lastDone = respCycle;
+            lastResp = respCycle;
         }
 #else
-        //     info("%s: inLat %lu(%s)", name.c_str(), respCycle, (req.type == GETS || req.type == GETX) ? "GET" : "PUT" );
 
         respCycle = cc->processAccess(req, lineId, respCycle);
 #endif
