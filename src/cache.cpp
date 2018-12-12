@@ -31,7 +31,7 @@
 #include "zsim.h"
 
 #define _GRAPHETCH 
-// #undef _GRAPHETCH
+#undef _GRAPHETCH
 
 #ifdef _GRAPHETCH
 #include <map>
@@ -44,9 +44,9 @@ std::map<uint64_t, uint64_t> MCnodestatus;
 #include "graphetch/graphnode.h"
 
 uint64_t lastResp = 0;
-int64_t doneSince = 0;
 
 #endif
+int64_t doneSince = 0;
 
 Cache::Cache(uint32_t _numLines, CC* _cc, CacheArray* _array, ReplPolicy* _rp, uint32_t _accLat, uint32_t _invLat, const g_string& _name)
     : cc(_cc), array(_array), rp(_rp), numLines(_numLines), accLat(_accLat), invLat(_invLat), name(_name) {}
@@ -111,9 +111,9 @@ uint64_t Cache::access(MemReq& req) {
             wbAcc = evRec->popRecord();
         }
 
+#define LLC "l2-0" /* Change this manually for now when graphetch.cfg changes */
 #ifdef _GRAPHETCH
 
-#define LLC "l2-0" /* Change this manually for now when graphetch.cfg changes */
 #define SIMPLE_MEMORY_LATENCY 100 /* Change manually if graphetch.cfg changes for now... */
 
         // METHOD 1: Squeeze in requests when there was enough time available.
@@ -122,44 +122,97 @@ uint64_t Cache::access(MemReq& req) {
         // we assume that we fetched the node that is being requested right now making this method
         // optimal in the sense of predicting the future (We knew what would miss from cache).
 
-        int64_t diff = req.cycle - lastResp;
+        /* access will go to main memory */
+        if(name == LLC) {
+            if((req.type == GETS) || (req.type == GETX)) {
 
-        if((req.type == GETS || req.type == GETX) && (diff >= SIMPLE_MEMORY_LATENCY)) {
-            doneSince += (diff / SIMPLE_MEMORY_LATENCY); // The if condition is implicit in this line
-            info("ADD DONESINCE = %ld", doneSince);
-        }
+                int64_t diff = req.cycle - lastResp;
+                assert(diff >= 0);
 
-        if(isGraphetch) {
-            info("GRAPHETCH at %s", name.c_str());
-        }
+                if(diff >= SIMPLE_MEMORY_LATENCY) {
+                    int64_t slots = diff / SIMPLE_MEMORY_LATENCY;
+                    doneSince += slots; // The if condition is implicit in this line
+                    info("memaccplus: in %lu, out %lu", lastResp, lastResp + (slots * SIMPLE_MEMORY_LATENCY));
+                }
 
-        if (isGraphetch && (req.type == GETS || req.type == GETX) && (name == LLC)) {
-            if(doneSince > 0) {
-                doneSince -= 1;
-                info("GRAPHETCH THIS MOFU! DONESINCE = %ld", doneSince);
+                if(isGraphetch && (doneSince > 0)) {
+                    info("MOFU");
+                    doneSince -= 1;
+                    respCycle = cc->processAccess(req, lineId, respCycle);
+                    respCycle = req.cycle;
+                }
+                else {
+                    respCycle = cc->processAccess(req, lineId, respCycle);
+                }
 
-                respCycle = cc->processAccess(req, lineId, respCycle);
-                respCycle = req.cycle;
+                info("memaccllc: in %lu, out %lu", req.cycle, respCycle);
+                lastResp = respCycle;
             }
-            else
+            else {
                 respCycle = cc->processAccess(req, lineId, respCycle);
+            }
         }
-        else {
+        else { /* NOT LLC */
             respCycle = cc->processAccess(req, lineId, respCycle);
         }
 
-        lastResp = respCycle;
-#else
+        //     if(((req.type == GETS) || (req.type == GETX))) {
+        //         if(isGraphetch && (doneSince > 0)) {
+        //             info("MOFU");
+        //             doneSince -= 1;
+        //             respCycle = cc->processAccess(req, lineId, respCycle);
+        //             respCycle = req.cycle;
+        //         }
+        //         else {
+        //             respCycle = cc->processAccess(req, lineId, respCycle);
+        //         }
+        //     }
+        //     else {
+        //         respCycle = cc->processAccess(req, lineId, respCycle);
+        //     }
 
-        respCycle = cc->processAccess(req, lineId, respCycle);
-        // if ((req.type == GETS || req.type == GETX)  && (name == "l2-0")) {
-        //     info("in %lu, out %lu", req.cycle + 10, respCycle); // +10 for l2 lookup latency
+        //     lastResp = respCycle;
+
+        //     info("memaccllc: in %lu, out %lu", lastResp, lastResp + (slots * SIMPLE_MEMORY_LATENCY));
+        // }
+        // else {
+        //     respCycle = cc->processAccess(req, lineId, respCycle);
         // }
 
-#endif
+        // if((req.type == GETS || req.type == GETX) && (diff >= SIMPLE_MEMORY_LATENCY)) {
+        //     int64_t slots = diff / SIMPLE_MEMORY_LATENCY;
+        //     doneSince += slots; // The if condition is implicit in this line
+        //     info("memaccplus: in %lu, out %lu", lastResp, lastResp + (slots * SIMPLE_MEMORY_LATENCY));
+        // }
 
-        // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
-        //     info("%s: outLat %lu(%s)", name.c_str(), respCycle,  (req.type == GETS || req.type == GETX) ? "GET" : "PUT");
+        // // if(isGraphetch) {
+        // //     info("GRAPHETCH at %s", name.c_str());
+        // // }
+
+        // if (isGraphetch && (req.type == GETS || req.type == GETX) && (name == LLC)) {
+        //     if(doneSince > 0) {
+        //         info("MOFU");
+        //         doneSince -= 1;
+        //         respCycle = cc->processAccess(req, lineId, respCycle);
+        //         respCycle = req.cycle;
+        //     }
+        //     else
+        //         respCycle = cc->processAccess(req, lineId, respCycle);
+        // }
+        // else {
+        //     respCycle = cc->processAccess(req, lineId, respCycle);
+        //     if (req.type == GETS || req.type == GETX) {
+        //         info("memaccg: in %lu, out %lu", req.cycle, respCycle);
+        //     }
+        // }
+
+        // lastResp = respCycle;
+#else
+        respCycle = cc->processAccess(req, lineId, respCycle);
+        if((req.type == GETS || req.type == GETX) && (name == LLC)) {
+            info("memacc: in %lu, out %lu", req.cycle, respCycle);
+        }
+#endif
 
         // Access may have generated another timing record. If *both* access
         // and wb have records, stitch them together

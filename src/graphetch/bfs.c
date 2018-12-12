@@ -13,6 +13,15 @@
 #include "graphnode.h"
 #include "zsim_hooks.h"
 
+#define PROCESS_COUNT 0
+
+/* This method is called by each node for processing */
+void processNode(void) {
+    for(uint64_t i = 0; i < PROCESS_COUNT; i++) {
+        __asm__ __volatile__("xchg %%rax, %%rax;" : : "a"(0x123456789abcde0));
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     size_t num = 100;
@@ -101,6 +110,7 @@ int main(int argc, char *argv[]) {
             maxq++;
         }
 
+        processNode();
         visited[queue[cur]->id] = true;
         /* printf("%d, ", queue[cur]->id); */
 
