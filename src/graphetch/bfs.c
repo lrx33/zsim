@@ -11,6 +11,7 @@
 #include<stdbool.h>
 #include<string.h>
 #include "graphnode.h"
+#include "zsim_hooks.h"
 
 int main(int argc, char *argv[]) {
 
@@ -61,6 +62,7 @@ int main(int argc, char *argv[]) {
 
     /* Graph creation complete. Nodes are randomly assigned and chained.
        Now we perform BFS on the obtained graph */
+
     struct node *root = graph[0];
     struct node **queue = malloc(num * sizeof(struct node *));
     bool *visited = (bool *) malloc(num * sizeof(bool));
@@ -74,6 +76,13 @@ int main(int argc, char *argv[]) {
     queue[0] = root;
     int maxq = 1; /* Max index in queue */
     int cur = maxq - 1; /* Current index in queue being processed */
+
+    struct node x;
+    zsim_gra_mark_begin();
+    for(i = 0; i < num; i++)  {
+        __asm__ __volatile__("mov %%rax, %%rbx;" : : "a"(graph[i]));
+    }
+    zsim_gra_mark_end();
 
     while(cur < maxq) {
 

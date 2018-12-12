@@ -165,7 +165,13 @@ VOID FFThread(VOID* arg);
 
 InstrFuncPtrs fPtrs[MAX_THREADS] ATTR_LINE_ALIGNED; //minimize false sharing
 
+VOID PIN_FAST_ANALYSIS_CALL GraphMarker(THREADID tid, ADDRINT addr) {
+    info("graphmark: [%d], addr %lx", tid, addr);
+    
+}
+
 VOID PIN_FAST_ANALYSIS_CALL IndirectLoadSingle(THREADID tid, ADDRINT addr) {
+
     fPtrs[tid].loadPtr(tid, addr);
 }
 
@@ -539,6 +545,11 @@ VOID Instruction(INS ins) {
         AFUNPTR PredLoadFuncPtr = (AFUNPTR) IndirectPredLoadSingle;
         AFUNPTR PredStoreFuncPtr = (AFUNPTR) IndirectPredStoreSingle;
 
+        if (GRAPHETCH_INSMARK && INS_IsMov(ins) && INS_OperandReg(ins, 1) == REG_RAX && INS_OperandReg(ins, 0) == REG_RBX) {
+            info("RBX RBX RBX");
+            INS_InsertCall(ins, IPOINT_AFTER, (AFUNPTR) GraphMarker, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_REG_VALUE, REG_RBX, IARG_END);
+        }
+
         if (INS_IsMemoryRead(ins)) {
             if (!INS_IsPredicated(ins)) {
                 INS_InsertCall(ins, IPOINT_BEFORE, LoadFuncPtr, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_MEMORYREAD_EA, IARG_END);
@@ -554,6 +565,7 @@ VOID Instruction(INS ins) {
                 INS_InsertCall(ins, IPOINT_BEFORE, PredLoadFuncPtr, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_MEMORYREAD2_EA, IARG_EXECUTING, IARG_END);
             }
         }
+
 
         if (INS_IsMemoryWrite(ins)) {
             if (!INS_IsPredicated(ins)) {
@@ -1203,11 +1215,12 @@ VOID HandleMagicOp(THREADID tid, ADDRINT op) {
             return;
 
         case ZSIM_MAGIC_GRA_MARK_BEGIN:
+            info("---- BEGIN MARKING\n");
             GRAPHETCH_INSMARK = true;
             break;
 
         case ZSIM_MAGIC_GRA_MARK_END:
-            assert(0 == 1);
+            info("--- END MARKING\n");
             GRAPHETCH_INSMARK = false;
             break;
 
