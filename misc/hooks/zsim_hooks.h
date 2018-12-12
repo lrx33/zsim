@@ -15,6 +15,9 @@
 #define ZSIM_MAGIC_OP_WORK_BEGIN        (1029) //ubik
 #define ZSIM_MAGIC_OP_WORK_END          (1030) //ubik
 
+#define ZSIM_MAGIC_GRA_MARK_BEGIN       (1041) //graphetch
+#define ZSIM_MAGIC_GRA_MARK_END         (1042) //graphetch
+
 #ifdef __x86_64__
 #define HOOKS_STR  "HOOKS"
 static inline void zsim_magic_op(uint64_t op) {
@@ -28,6 +31,14 @@ static inline void zsim_magic_op(uint64_t op) {
     //NOP
 }
 #endif
+
+static inline void zsim_gra_mark_begin(void) {
+    zsim_magic_op(ZSIM_MAGIC_GRA_MARK_BEGIN);
+}
+
+static inline void zsim_gra_mark_end(void) {
+    zsim_magic_op(ZSIM_MAGIC_GRA_MARK_END);
+}
 
 static inline void zsim_roi_begin() {
     printf("[" HOOKS_STR "] ROI begin\n");

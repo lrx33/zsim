@@ -132,6 +132,7 @@ class FilterCache : public Cache {
             MemReq req = {pLineAddr, isLoad? GETS : GETX, 0, &dummyState, curCycle, &filterLock, dummyState, srcId, reqFlags};
             uint64_t respCycle  = access(req);
 
+            info("Doing req for %lx", pLineAddr);
             //Due to the way we do the locking, at this point the old address might be invalidated, but we have the new address guaranteed until we release the lock
 
             //Careful with this order

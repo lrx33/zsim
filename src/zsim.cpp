@@ -93,6 +93,7 @@ INT32 Usage() {
 /* Global Variables */
 
 GlobSimInfo* zinfo;
+bool GRAPHETCH_INSMARK = false;
 
 /* Per-process variables */
 
@@ -1133,6 +1134,9 @@ VOID SimEnd() {
 #define ZSIM_MAGIC_OP_REGISTER_THREAD   (1027)
 #define ZSIM_MAGIC_OP_HEARTBEAT         (1028)
 
+#define ZSIM_MAGIC_GRA_MARK_BEGIN       (1041) //graphetch
+#define ZSIM_MAGIC_GRA_MARK_END         (1042) //graphetch
+
 VOID HandleMagicOp(THREADID tid, ADDRINT op) {
     switch (op) {
         case ZSIM_MAGIC_OP_ROI_BEGIN:
@@ -1197,6 +1201,16 @@ VOID HandleMagicOp(THREADID tid, ADDRINT op) {
         case 1032:
         case 1033:
             return;
+
+        case ZSIM_MAGIC_GRA_MARK_BEGIN:
+            GRAPHETCH_INSMARK = true;
+            break;
+
+        case ZSIM_MAGIC_GRA_MARK_END:
+            assert(0 == 1);
+            GRAPHETCH_INSMARK = false;
+            break;
+
         default:
             panic("Thread %d issued unknown magic op %ld!", tid, op);
     }
