@@ -354,20 +354,28 @@ class MESICC : public CC {
             //invalidations. The alternative with this would be to capture these blocks, since we have space anyway. This is so rare is doesn't matter,
             //but if we do proper NI/EX mid-level caches backed by directories, this may start becoming more common (and it is perfectly acceptable to
             //upgrade without any interaction with the parent... the child had the permissions!)
+            bool isGraphetch = req.flags & MemReq::GRAPHETCH;
+
             if (lineId == -1 || (((req.type == PUTS) || (req.type == PUTX)) && !bcc->isValid(lineId))) { //can only be a non-inclusive wback
                 assert(nonInclusiveHack);
                 assert((req.type == PUTS) || (req.type == PUTX));
 
                 /* info("CC: process: NonInclWB"); */
+                if(isGraphetch)
+                    info("CC: process: NonInclWB");
+
                 respCycle = bcc->processNonInclusiveWriteback(req.lineAddr, req.type, startCycle, req.state, req.srcId, req.flags);
             } else {
                 //Prefetches are side requests and get handled a bit differently
-                 bool isPrefetch = req.flags & MemReq::PREFETCH;
+                bool isPrefetch = req.flags & MemReq::PREFETCH;
                 assert(!isPrefetch || req.type == GETS);
                 uint32_t flags = req.flags & ~MemReq::PREFETCH; //always clear PREFETCH, this flag cannot propagate up
 
                 //if needed, fetch line or upgrade miss from upper level
                 /* info("CC: bcc---->"); */
+                if(isGraphetch)
+                    info("BCC: process: access");
+
                 respCycle = bcc->processAccess(req.lineAddr, lineId, req.type, startCycle, req.srcId, flags);
                 /* info("CC: process: Case 2: DONE BCC"); */
 
@@ -386,8 +394,6 @@ class MESICC : public CC {
                         bcc->processWritebackOnAccess(req.lineAddr, lineId, req.type);
                     }
                 }
-                /* else */
-                /*     info("CC: process: Case 2: NOT "); */
             }
 
             return respCycle;
@@ -477,7 +483,11 @@ class MESITerminalCC : public CC {
         }
 
         uint64_t processAccess(const MemReq& req, int32_t lineId, uint64_t startCycle,  uint64_t* getDoneCycle = nullptr) {
-            /* info("MesiTERMINALCC: process t=%d", req.type); */
+            bool isGraphetch = req.flags & MemReq::GRAPHETCH;
+            if(isGraphetch) {
+                info("MesiTERMINALCC: process");
+            }
+
             assert(lineId != -1);
             assert(!getDoneCycle);
             //if needed, fetch line or upgrade miss from upper level

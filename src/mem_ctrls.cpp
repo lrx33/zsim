@@ -55,8 +55,8 @@ uint64_t SimpleMemory::access(MemReq& req) {
         eventRecorders[req.srcId]->pushRecord(tr);
     }
 */
-    if(req.type == GETX || req.type == GETS)
-        info("MemAcc: %lu , out %lu(%d)", req.cycle, respCycle, req.type);
+    // if(req.type == GETX || req.type == GETS)
+    //     info("MemAcc: %lu , out %lu(%d)", req.cycle, respCycle, req.type);
 
     return respCycle;
 }

@@ -94,6 +94,8 @@ INT32 Usage() {
 
 GlobSimInfo* zinfo;
 bool GRAPHETCH_INSMARK = false;
+std::vector<uint64_t> graphNodes;
+extern uint64_t doneSince;
 
 /* Per-process variables */
 
@@ -167,7 +169,7 @@ InstrFuncPtrs fPtrs[MAX_THREADS] ATTR_LINE_ALIGNED; //minimize false sharing
 
 VOID PIN_FAST_ANALYSIS_CALL GraphMarker(THREADID tid, ADDRINT addr) {
     info("graphmark: [%d], addr %lx", tid, addr);
-    
+    graphNodes.push_back(addr);
 }
 
 VOID PIN_FAST_ANALYSIS_CALL IndirectLoadSingle(THREADID tid, ADDRINT addr) {
@@ -1221,6 +1223,14 @@ VOID HandleMagicOp(THREADID tid, ADDRINT op) {
 
         case ZSIM_MAGIC_GRA_MARK_END:
             info("--- END MARKING\n");
+            info("--- Total Nodes: %lu\n", graphNodes.size());
+
+            std::sort(graphNodes.begin(), graphNodes.end());
+            doneSince = 0;
+
+            // for(unsigned int i=0; i < graphNodes.size(); i++)
+            //     printf("%lx,", graphNodes[i]);
+
             GRAPHETCH_INSMARK = false;
             break;
 

@@ -41,6 +41,9 @@
  * it is fine to do this without grabbing a lock.
  */
 
+#include<algorithm>
+extern std::vector<uint64_t> graphNodes;
+
 class FilterCache : public Cache {
     private:
         struct FilterEntry {
@@ -100,14 +103,41 @@ class FilterCache : public Cache {
         }
 
         inline uint64_t load(Address vAddr, uint64_t curCycle) {
+
             Address vLineAddr = vAddr >> lineBits;
             uint32_t idx = vLineAddr & setMask;
             uint64_t availCycle = filterArray[idx].availCycle; //read before, careful with ordering to avoid timing races
+
+            if(graphNodes.size() > 0) {
+                /* info("Doing req for %lx, check %lx and %lx", vAddr, graphNodes[0], graphNodes[graphNodes.size() - 1]); */
+
+                if((vAddr >= graphNodes[0]) && (vAddr <= graphNodes[graphNodes.size() - 1]))
+                    info("%lx is a graph node", vAddr);
+
+                /* if(isGraphetch) { */
+                /*     info("GRAPHETCH for %lx", vLineAddr); */
+                /*     assert(0 == 1); */
+                /* } */
+            }
+
             if (vLineAddr == filterArray[idx].rdAddr) {
                 fGETSHit++;
+                /* info("----- FilterArray %lx", vAddr); */
                 return MAX(curCycle, availCycle);
             } else {
-                return replace(vLineAddr, idx, true, curCycle);
+                /* info("----- GraphetchCheck %lx", vAddr); */
+                /* bool isGraphetch = (find(graphNodes.begin(), graphNodes.end(), vLineAddr) == graphNodes.end() ? false : true); */
+                bool isGraphetch = false;
+                if(graphNodes.size() > 0) {
+                    if((vAddr >= graphNodes[0]) && (vAddr <= graphNodes[graphNodes.size() - 1])) // && ((vAddr - graphNodes[0]) % (graphNodes[1] - graphNodes[0]) == 0))
+                        isGraphetch = true;
+
+                    if(isGraphetch) {
+                        info("GRAPHETCH for %lx", vAddr);
+                    }
+                }
+
+                return replace(vLineAddr, idx, true, curCycle, isGraphetch); // Only for GET* requests.
             }
         }
 
@@ -125,14 +155,18 @@ class FilterCache : public Cache {
             }
         }
 
-        uint64_t replace(Address vLineAddr, uint32_t idx, bool isLoad, uint64_t curCycle) {
+        uint64_t replace(Address vLineAddr, uint32_t idx, bool isLoad, uint64_t curCycle, bool isGraphetch = false) {
             Address pLineAddr = procMask | vLineAddr;
             MESIState dummyState = MESIState::I;
             futex_lock(&filterLock);
-            MemReq req = {pLineAddr, isLoad? GETS : GETX, 0, &dummyState, curCycle, &filterLock, dummyState, srcId, reqFlags};
+
+            uint32_t flagsForReq = reqFlags;
+            if(isGraphetch)
+                flagsForReq |= MemReq::GRAPHETCH;
+
+            MemReq req = {pLineAddr, isLoad? GETS : GETX, 0, &dummyState, curCycle, &filterLock, dummyState, srcId, flagsForReq};
             uint64_t respCycle  = access(req);
 
-            info("Doing req for %lx", pLineAddr);
             //Due to the way we do the locking, at this point the old address might be invalidated, but we have the new address guaranteed until we release the lock
 
             //Careful with this order

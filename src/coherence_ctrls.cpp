@@ -88,7 +88,9 @@ uint64_t MESIBottomCC::processAccess(Address lineAddr, uint32_t lineId, AccessTy
     uint64_t respCycle = cycle;
     MESIState* state = &array[lineId];
 
-    // info("MesiBOTTOM: process t=%d", type);
+    bool isGraphetch = flags & MemReq::GRAPHETCH;
+    if(isGraphetch)
+        info("MesiBOTTOM: process t=%d", type);
 
     switch (type) {
         // A PUTS/PUTX does nothing w.r.t. higher coherence levels --- it dies here
@@ -109,7 +111,8 @@ uint64_t MESIBottomCC::processAccess(Address lineAddr, uint32_t lineId, AccessTy
                 uint32_t parentId = getParentId(lineAddr);
                 MemReq req = {lineAddr, GETS, selfId, state, cycle, &ccLock, *state, srcId, flags};
 
-                // info("access with reqt = %d", req.type);
+                if(isGraphetch)
+                    info("MesiBOTTOM: Accessing next level GETS");
 
                 uint32_t nextLevelLat = parents[parentId]->access(req) - cycle;
                 uint32_t netLat = parentRTTs[parentId];
@@ -119,6 +122,9 @@ uint64_t MESIBottomCC::processAccess(Address lineAddr, uint32_t lineId, AccessTy
                 profGETSMiss.inc();
                 assert(*state == S || *state == E);
             } else {
+                if(isGraphetch)
+                    info("MesiBOTTOM: Inc GETShit");
+
                 profGETSHit.inc();
             }
             break;
