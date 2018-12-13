@@ -102,7 +102,6 @@ Address procMask;
 
 static ProcessTreeNode* procTreeNode;
 
-std::list<uint64_t> graphNode;
 //tid to cid translation
 #define INVALID_CID ((uint32_t)-1)
 #define UNINITIALIZED_CID ((uint32_t)-2) //Value set at initialization
@@ -142,7 +141,6 @@ VOID SimThreadStart(THREADID tid);
 VOID SimThreadFini(THREADID tid);
 VOID SimEnd();
 
-VOID HandleMagicOpGraph(THREADID tid, ADDRINT op, ADDRINT address);
 VOID HandleMagicOp(THREADID tid, ADDRINT op);
 
 VOID FakeCPUIDPre(THREADID tid, REG eax, REG ecx);
@@ -578,17 +576,7 @@ VOID Instruction(INS ins) {
      */
     if (INS_IsXchg(ins) && INS_OperandReg(ins, 0) == REG_RCX && INS_OperandReg(ins, 1) == REG_RCX) {
         //info("Instrumenting magic op");
-				// So if this exch instruction is called, the HandleMagicOp function is placed.
-				INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) HandleMagicOp, IARG_THREAD_ID, IARG_REG_VALUE, REG_ECX, IARG_END);
-    }
-
-    // Handle graph magic ops
-    if (INS_IsXchg(ins) && INS_OperandReg(ins, 0) == REG_RBX && INS_OperandReg(ins, 1) == REG_RBX) {
-
-        info("Instrumenting magic op for cache");
-
-        // So if this exch instruction is called, the HandleMagicOpCache function is placed. Following are args.
-        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) HandleMagicOpGraph, IARG_THREAD_ID, IARG_REG_VALUE, REG_RBX, IARG_REG_VALUE, REG_RDI, IARG_END);
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR) HandleMagicOp, IARG_THREAD_ID, IARG_REG_VALUE, REG_ECX, IARG_END);
     }
 
     if (INS_Opcode(ins) == XED_ICLASS_CPUID) {
@@ -1144,22 +1132,6 @@ VOID SimEnd() {
 #define ZSIM_MAGIC_OP_ROI_END           (1026)
 #define ZSIM_MAGIC_OP_REGISTER_THREAD   (1027)
 #define ZSIM_MAGIC_OP_HEARTBEAT         (1028)
-#define ZSIM_MAGIC_OP_CACHE_TILE_START  (1031)
-#define ZSIM_MAGIC_OP_CACHE_TILE_END    (1032)
-#define ZSIM_MAGIC_OP_GRAPH							(1033)
-
-// Handler for graph magic ops
-VOID HandleMagicOpGraph(THREADID tid, ADDRINT op, ADDRINT op2) {
-    if (op == ZSIM_MAGIC_OP_GRAPH) {
-        graphNode.push_back(op2);
-
-        info("Node op2 %lu isleaf %d", op2, *(int*)op2);
-
-    } else {
-        fprintf(stderr, "Should not happen\n");
-    }
-}
-
 
 VOID HandleMagicOp(THREADID tid, ADDRINT op) {
     switch (op) {

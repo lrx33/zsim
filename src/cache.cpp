@@ -154,9 +154,9 @@ uint64_t Cache::access(MemReq& req) {
 #else
 
         respCycle = cc->processAccess(req, lineId, respCycle);
-        // if ((req.type == GETS || req.type == GETX)  && (name == "l2-0")) {
-        //     info("in %lu, out %lu", req.cycle + 10, respCycle); // +10 for l2 lookup latency
-        // }
+        if ((req.type == GETS || req.type == GETX)  && (name == "l2-0")) {
+            info("in %lu, out %lu", req.cycle + 10, respCycle); // +10 for l2 lookup latency
+        }
 
 #endif
 

@@ -64,6 +64,8 @@ struct node* buildgraph(int n)
 
 void bfs(struct node*root)
 {
+	
+	
 	queue<struct node*> q1;
 	q1.push(root);
 	
