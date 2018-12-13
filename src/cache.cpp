@@ -44,9 +44,9 @@ std::map<uint64_t, uint64_t> MCnodestatus;
 #include "graphetch/graphnode.h"
 
 uint64_t lastResp = 0;
-int64_t doneSince = 0;
 
 #endif
+int64_t doneSince = 0;
 
 Cache::Cache(uint32_t _numLines, CC* _cc, CacheArray* _array, ReplPolicy* _rp, uint32_t _accLat, uint32_t _invLat, const g_string& _name)
     : cc(_cc), array(_array), rp(_rp), numLines(_numLines), accLat(_accLat), invLat(_invLat), name(_name) {}
@@ -79,6 +79,7 @@ void Cache::initCacheStats(AggregateStat* cacheStat) {
 uint64_t Cache::access(MemReq& req) {
     uint64_t respCycle = req.cycle;
     bool skipAccess = cc->startAccess(req); //may need to skip access due to races (NOTE: may change req.type!)
+    bool isGraphetch = req.flags & MemReq::GRAPHETCH;
 
     if (likely(!skipAccess)) {
         bool updateReplacement = (req.type == GETS) || (req.type == GETX);
@@ -93,10 +94,14 @@ uint64_t Cache::access(MemReq& req) {
 
             //Evictions are not in the critical path in any sane implementation -- we do not include their delays
             //NOTE: We might be "evicting" an invalid line for all we know. Coherence controllers will know what to do
+            if(isGraphetch)
+                info("cache: %s: processEviction", name.c_str());
+            
             cc->processEviction(req, wbLineAddr, lineId, respCycle); //1. if needed, send invalidates/downgrades to lower level
 
             array->postinsert(req.lineAddr, &req, lineId); //do the actual insertion. NOTE: Now we must split insert into a 2-phase thing because cc unlocks us.
         }
+
         // Enforce single-record invariant: Writeback access may have a timing
         // record. If so, read it.
         EventRecorder* evRec = zinfo->eventRecorders[req.srcId];
@@ -106,62 +111,108 @@ uint64_t Cache::access(MemReq& req) {
             wbAcc = evRec->popRecord();
         }
 
+#define LLC "l2-0" /* Change this manually for now when graphetch.cfg changes */
 #ifdef _GRAPHETCH
 
-#define LLC "l2-0" /* Change this manually for now when graphetch.cfg changes */
 #define SIMPLE_MEMORY_LATENCY 100 /* Change manually if graphetch.cfg changes for now... */
 
         // METHOD 1: Squeeze in requests when there was enough time available.
-        // Fetch normally in all cases to let Cache Controllers do their thing (Maybe should change this?).
-        // reset respCycle to 0 if Graphetch'd! This is the OPTIMAL version of this method => we prefetched
-        // the node that is now being requested (we can predict the future)
-        int64_t diff = req.cycle - lastResp;
-        assert(diff > 0);
+        // reset respCycle to be equal to req.cycle if Graphetch'd!
+        // As we are only hiding latency based on the time between successive requests to memory, 
+        // we assume that we fetched the node that is being requested right now making this method
+        // optimal in the sense of predicting the future (We knew what would miss from cache).
 
-        if(diff >= SIMPLE_MEMORY_LATENCY) {
-            doneSince += (diff / SIMPLE_MEMORY_LATENCY);
-        }
+        /* access will go to main memory */
+        if(name == LLC) {
+            if((req.type == GETS) || (req.type == GETX)) {
 
-        bool isGraphetch = req.flags & MemReq::GRAPHETCH;
-        if ((req.type == GETS || req.type == GETX) && isGraphetch && (name == LLC)) {
+                int64_t diff = req.cycle - lastResp;
+                assert(diff >= 0);
 
-            std::vector<uint64_t>::iterator it = find(MCnodelist.begin(), MCnodelist.end(), req.lineAddr);
+                if(diff >= SIMPLE_MEMORY_LATENCY) {
+                    int64_t slots = diff / SIMPLE_MEMORY_LATENCY;
+                    doneSince += slots; // The if condition is implicit in this line
+                    info("memaccplus: in %lu, out %lu", lastResp, lastResp + (slots * SIMPLE_MEMORY_LATENCY));
+                }
 
-            if(it == MCnodelist.end()) {
-                struct node *thisnode = (struct node *) (req.lineAddr);
-
-                if(thisnode->left)
-                    MCnodelist.push_back((uint64_t) (thisnode->left));
-
-                if(thisnode->right)
-                    MCnodelist.push_back((uint64_t) (thisnode->right));
-            }
-            else {
-                if(doneSince > 0) {
-                    doneSince--;
+                if(isGraphetch && (doneSince > 0)) {
+                    info("MOFU");
+                    doneSince -= 1;
                     respCycle = cc->processAccess(req, lineId, respCycle);
                     respCycle = req.cycle;
-
-                    MCnodelist.erase(it);
                 }
                 else {
                     respCycle = cc->processAccess(req, lineId, respCycle);
                 }
+
+                info("memaccllc: in %lu, out %lu", req.cycle, respCycle);
+                lastResp = respCycle;
             }
-
-            lastResp = respCycle;
+            else {
+                respCycle = cc->processAccess(req, lineId, respCycle);
+            }
         }
+        else { /* NOT LLC */
+            respCycle = cc->processAccess(req, lineId, respCycle);
+        }
+
+        //     if(((req.type == GETS) || (req.type == GETX))) {
+        //         if(isGraphetch && (doneSince > 0)) {
+        //             info("MOFU");
+        //             doneSince -= 1;
+        //             respCycle = cc->processAccess(req, lineId, respCycle);
+        //             respCycle = req.cycle;
+        //         }
+        //         else {
+        //             respCycle = cc->processAccess(req, lineId, respCycle);
+        //         }
+        //     }
+        //     else {
+        //         respCycle = cc->processAccess(req, lineId, respCycle);
+        //     }
+
+        //     lastResp = respCycle;
+
+        //     info("memaccllc: in %lu, out %lu", lastResp, lastResp + (slots * SIMPLE_MEMORY_LATENCY));
+        // }
+        // else {
+        //     respCycle = cc->processAccess(req, lineId, respCycle);
+        // }
+
+        // if((req.type == GETS || req.type == GETX) && (diff >= SIMPLE_MEMORY_LATENCY)) {
+        //     int64_t slots = diff / SIMPLE_MEMORY_LATENCY;
+        //     doneSince += slots; // The if condition is implicit in this line
+        //     info("memaccplus: in %lu, out %lu", lastResp, lastResp + (slots * SIMPLE_MEMORY_LATENCY));
+        // }
+
+        // // if(isGraphetch) {
+        // //     info("GRAPHETCH at %s", name.c_str());
+        // // }
+
+        // if (isGraphetch && (req.type == GETS || req.type == GETX) && (name == LLC)) {
+        //     if(doneSince > 0) {
+        //         info("MOFU");
+        //         doneSince -= 1;
+        //         respCycle = cc->processAccess(req, lineId, respCycle);
+        //         respCycle = req.cycle;
+        //     }
+        //     else
+        //         respCycle = cc->processAccess(req, lineId, respCycle);
+        // }
+        // else {
+        //     respCycle = cc->processAccess(req, lineId, respCycle);
+        //     if (req.type == GETS || req.type == GETX) {
+        //         info("memaccg: in %lu, out %lu", req.cycle, respCycle);
+        //     }
+        // }
+
+        // lastResp = respCycle;
 #else
-
         respCycle = cc->processAccess(req, lineId, respCycle);
-        if ((req.type == GETS || req.type == GETX)  && (name == "l2-0")) {
-            info("in %lu, out %lu", req.cycle + 10, respCycle); // +10 for l2 lookup latency
+        if((req.type == GETS || req.type == GETX) && (name == LLC)) {
+            info("memacc: in %lu, out %lu", req.cycle, respCycle);
         }
-
 #endif
-
-        // if ((req.type == GETS || req.type == GETX) && (name == "l2-0"))
-        //     info("%s: outLat %lu(%s)", name.c_str(), respCycle,  (req.type == GETS || req.type == GETX) ? "GET" : "PUT");
 
         // Access may have generated another timing record. If *both* access
         // and wb have records, stitch them together

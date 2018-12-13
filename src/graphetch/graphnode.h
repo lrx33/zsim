@@ -2,11 +2,8 @@
 #define _GRAPHETCH_GRAPHNODE_
 
 struct node {
-    int id;
-    int value1;
-    int value2;
-    int value3;
-    int value4;
+    int32_t id;
+    int32_t values[5];
 
     struct node *left, *right;
 };

@@ -93,6 +93,9 @@ INT32 Usage() {
 /* Global Variables */
 
 GlobSimInfo* zinfo;
+bool GRAPHETCH_INSMARK = false;
+std::vector<uint64_t> graphNodes;
+extern uint64_t doneSince;
 
 /* Per-process variables */
 
@@ -164,7 +167,13 @@ VOID FFThread(VOID* arg);
 
 InstrFuncPtrs fPtrs[MAX_THREADS] ATTR_LINE_ALIGNED; //minimize false sharing
 
+VOID PIN_FAST_ANALYSIS_CALL GraphMarker(THREADID tid, ADDRINT addr) {
+    info("graphmark: [%d], addr %lx", tid, addr);
+    graphNodes.push_back(addr);
+}
+
 VOID PIN_FAST_ANALYSIS_CALL IndirectLoadSingle(THREADID tid, ADDRINT addr) {
+
     fPtrs[tid].loadPtr(tid, addr);
 }
 
@@ -538,6 +547,11 @@ VOID Instruction(INS ins) {
         AFUNPTR PredLoadFuncPtr = (AFUNPTR) IndirectPredLoadSingle;
         AFUNPTR PredStoreFuncPtr = (AFUNPTR) IndirectPredStoreSingle;
 
+        if (GRAPHETCH_INSMARK && INS_IsMov(ins) && INS_OperandReg(ins, 1) == REG_RAX && INS_OperandReg(ins, 0) == REG_RBX) {
+            info("RBX RBX RBX");
+            INS_InsertCall(ins, IPOINT_AFTER, (AFUNPTR) GraphMarker, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_REG_VALUE, REG_RBX, IARG_END);
+        }
+
         if (INS_IsMemoryRead(ins)) {
             if (!INS_IsPredicated(ins)) {
                 INS_InsertCall(ins, IPOINT_BEFORE, LoadFuncPtr, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_MEMORYREAD_EA, IARG_END);
@@ -553,6 +567,7 @@ VOID Instruction(INS ins) {
                 INS_InsertCall(ins, IPOINT_BEFORE, PredLoadFuncPtr, IARG_FAST_ANALYSIS_CALL, IARG_THREAD_ID, IARG_MEMORYREAD2_EA, IARG_EXECUTING, IARG_END);
             }
         }
+
 
         if (INS_IsMemoryWrite(ins)) {
             if (!INS_IsPredicated(ins)) {
@@ -1133,6 +1148,9 @@ VOID SimEnd() {
 #define ZSIM_MAGIC_OP_REGISTER_THREAD   (1027)
 #define ZSIM_MAGIC_OP_HEARTBEAT         (1028)
 
+#define ZSIM_MAGIC_GRA_MARK_BEGIN       (1041) //graphetch
+#define ZSIM_MAGIC_GRA_MARK_END         (1042) //graphetch
+
 VOID HandleMagicOp(THREADID tid, ADDRINT op) {
     switch (op) {
         case ZSIM_MAGIC_OP_ROI_BEGIN:
@@ -1197,6 +1215,25 @@ VOID HandleMagicOp(THREADID tid, ADDRINT op) {
         case 1032:
         case 1033:
             return;
+
+        case ZSIM_MAGIC_GRA_MARK_BEGIN:
+            info("---- BEGIN MARKING\n");
+            GRAPHETCH_INSMARK = true;
+            break;
+
+        case ZSIM_MAGIC_GRA_MARK_END:
+            info("--- END MARKING\n");
+            info("--- Total Nodes: %lu\n", graphNodes.size());
+
+            std::sort(graphNodes.begin(), graphNodes.end());
+            doneSince = 0;
+
+            // for(unsigned int i=0; i < graphNodes.size(); i++)
+            //     printf("%lx,", graphNodes[i]);
+
+            GRAPHETCH_INSMARK = false;
+            break;
+
         default:
             panic("Thread %d issued unknown magic op %ld!", tid, op);
     }
