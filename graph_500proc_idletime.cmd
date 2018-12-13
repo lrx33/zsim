@@ -1,8 +1,8 @@
 set title '500 unit Processing on each node'
 set grid
 set key left top
-set xlabel 'Total Program Time'
-set ylabel 'Total Memory Idle Time'
+set xlabel 'Total Program Time (Cycles)
+set ylabel 'Total Memory Idle Time (Cycles)'
 
 plot 'results/500proc/vanilla_graphetch_1000000.cfg.500proc.out.result.reduced' with lines title '1MilNodesVanilla', \
 'results/500proc/graphetch_graphetch_1000000.cfg_500proc.out.result.reduced' with lines title '1MilNodesGraphetch', \
