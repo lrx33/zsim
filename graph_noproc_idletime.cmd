@@ -1,4 +1,4 @@
-set title '0 unit processing on each node'
+set title 'Memory Idle Time (0 unit processing per node)'
 set grid
 set key left top
 set xlabel 'Total Program Time (Cycles)'
